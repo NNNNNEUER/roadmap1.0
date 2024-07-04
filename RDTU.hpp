@@ -16,12 +16,13 @@ public:
         m_Kh = Kh;
         m_Kw = Kw;
     }
-    // 加载到RMB，成为(Co0,Kh*Kw)矩阵，这里本质上没有data layout变换
+    // load into RMB as a (Co0,Kh*Kw) matrix,
+    // there is essentially no data layout transformation here
     void load()
     {
-        // 本质上就是从L1中copy从L1_addr开始的
-        // [0,m_Co0*m_Kw*Kh)，不需要循环，但为了接口抽象暂时留着
-        // 结构：Co0 * (Kw*Kh)的矩阵,每个元素一个cacheline
+        // essentially copy starts at L1_addr from L1 [0,m_Co0*m_Kw*Kh)
+        // no loop needed, but left for interface abstraction
+        // Structure: matrix of Co0 * (Kw*Kh), one cacheline per element
 #define OFFSETRDTU(oi, ki, kj) (oi * m_Kh * m_Kw + ki * m_Kw + kj)
         for (size_t oi = 0; oi < m_Co0; ++oi)
         {
@@ -29,19 +30,20 @@ public:
             {
                 for (size_t kj = 0; kj < m_Kw; ++kj)
                 {
-                    m_RMB[OFFSETRDTU(oi, ki, kj)] = L1_cache.getWeightCacheLine(m_L1_addr, oi, ki, kj);
+                    m_RMB[OFFSETRDTU(oi, ki, kj)] =
+                        L1_cache.getWeightCacheLine(m_L1_addr, oi, ki, kj);
                 }
             }
         }
     }
-
-    // 返回(Co0,Kh*Kw)矩阵中的(Co0,Kh*Kw) cacheline
+    // Get the elements(CubeCacheLine) in row i and column j of
+    // the matrix (Co0,Kh*Kw) in RMB
     CubeCacheLine getCacheLine(size_t i, size_t j)
     {
         assert(i < (m_Co0) && j < (m_Kh * m_Kw));
         return m_RMB[i * (m_Kh * m_Kw) + j];
     }
-
+    // display the matrix (Co0,Kh*Kw) in RMB in the selected channel
     void displayMat(size_t channel)
     {
         Mat mat(m_Co0, m_Kh * m_Kw);
